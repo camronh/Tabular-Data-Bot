@@ -26,8 +26,10 @@ SortOptions = Literal['rating']
 
 
 class Sort(BaseModel):
-    sort: SortOptions
-    ascending: bool = True
+    sort: SortOptions = Field(
+        description="The column to sort by")
+    ascending: bool = Field(
+        description="Whether to sort in ascending order")
 
 
 class MovieSearch(BaseModel):
@@ -48,6 +50,11 @@ def get_embeddings(inputs: list[str], model_name: str = embeddings_model):
 def load_df(file_path: str = '../raw/top_50000.pkl') -> pd.DataFrame:
     print("Loading df")
     return pd.read_pickle(file_path)
+
+
+def sort_df(df: pd.DataFrame, sort: Sort) -> pd.DataFrame:
+    if sort.sort == "rating":
+        return df.sort_values(by="imdb_rating", ascending=sort.ascending)
 
 
 def df_to_llm(df: pd.DataFrame) -> list[dict]:
@@ -79,6 +86,9 @@ def df_to_llm(df: pd.DataFrame) -> list[dict]:
             "votes": row["imdb_votes"],
         })
     return movies
+
+
+NUMBER_OF_RESULTS = 10
 
 
 class MovieSearchTool(BaseTool):
@@ -121,5 +131,22 @@ class MovieSearchTool(BaseTool):
         # Return top k results
         return results_df
 
-    def _run(self, query: str):
-        return df_to_llm(self.semantic_search(query))
+    def search_movies(self, query: str = None, sort: Sort = None):
+        df = self.df.copy()
+
+        if query and sort:
+            # Get top 20 and then sort
+            df = self.semantic_search(query, 20)
+            df = sort_df(df, sort)
+
+        elif query:
+            df = self.semantic_search(query, NUMBER_OF_RESULTS)
+
+        elif sort:
+            df = sort_df(df, sort).head(NUMBER_OF_RESULTS)
+
+        return df
+
+    def _run(self, query: str = None, sort: Sort = None):
+        df = self.search_movies(query, sort)
+        return df_to_llm(df)
