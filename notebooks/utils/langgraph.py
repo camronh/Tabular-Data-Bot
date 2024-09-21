@@ -17,7 +17,8 @@ class AgentState(TypedDict):
 
 
 system_message = SystemMessage(
-    content="You are a helpful assistant that can answer questions about movies.")
+    content="You are a helpful assistant that can answer questions about movies. Only answer based on the context provided when using the search tool. \
+If the context does not contain the answer, apologize and say so. Otherwise, provide the answer concisely and in a friendly tone.")
 
 
 class Nodes:
@@ -27,7 +28,7 @@ class Nodes:
 
     def call_model(self, state: AgentState):
         llm = ChatOpenAI(
-            model="gpt-4o-mini").bind_tools(self.tools)
+            model="gpt-4o-mini", temperature=0).bind_tools(self.tools)
 
         response = llm.invoke([system_message] + state["messages"])
 
