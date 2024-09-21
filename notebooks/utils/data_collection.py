@@ -2,12 +2,11 @@
 from chromadb import Client
 import openai
 import pandas as pd
-from langchain_core.tools import tool, BaseTool
+from langchain_core.tools import BaseTool
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 from pydantic.v1 import BaseModel, Field
-from typing import Optional, Type
-import json
+from typing import Type, Optional, Literal
+
 
 client = openai.OpenAI()
 
@@ -15,9 +14,27 @@ chroma_client = Client()
 
 embeddings_model = "text-embedding-3-large"
 
+ColumnOptions = Literal['title', 'vote_average', 'vote_count', 'status', 'release_date',
+                        'revenue', 'runtime', 'budget', 'imdb_id', 'original_language',
+                        'original_title', 'overview', 'popularity', 'tagline', 'genres',
+                        'production_companies', 'production_countries', 'spoken_languages',
+                        'cast', 'director', 'director_of_photography', 'writers', 'producers',
+                        'music_composer', 'imdb_rating', 'imdb_votes', 'embedding',
+                        'embedding_norm']
+
+SortOptions = Literal['rating']
+
+
+class Sort(BaseModel):
+    sort: SortOptions
+    ascending: bool = True
+
 
 class MovieSearch(BaseModel):
-    query: str = Field(description="A semantic search for movie data")
+    query: Optional[str] = Field(
+        description="A semantic search for movie data")
+    sort: Optional[Sort] = Field(
+        description="Sort the results by a column")
 
 
 def get_embeddings(inputs: list[str], model_name: str = embeddings_model):
@@ -61,7 +78,7 @@ def df_to_llm(df: pd.DataFrame) -> list[dict]:
             "rating": row["imdb_rating"],
             "votes": row["imdb_votes"],
         })
-    return json.dumps(movies)
+    return movies
 
 
 class MovieSearchTool(BaseTool):
