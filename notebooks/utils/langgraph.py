@@ -41,7 +41,7 @@ class Nodes:
 def make_graph(tools):
 
     nodes = Nodes(tools)
-    tools_node = ToolNode(tools)
+    tools_node = ToolNode(tools, handle_tool_errors=False)
 
     # Define a new graph
     workflow = StateGraph(AgentState)

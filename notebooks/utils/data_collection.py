@@ -37,6 +37,8 @@ class MovieSearch(BaseModel):
         description="A semantic search for movie data")
     sort: Optional[Sort] = Field(
         description="Sort the results by a column")
+    cast: Optional[list[str]] = Field(
+        description="A list of actors or actresses that the movie must include")
 
 
 def get_embeddings(inputs: list[str], model_name: str = embeddings_model):
@@ -50,6 +52,20 @@ def get_embeddings(inputs: list[str], model_name: str = embeddings_model):
 def load_df(file_path: str = '../raw/top_50000.pkl') -> pd.DataFrame:
     print("Loading df")
     return pd.read_pickle(file_path)
+
+
+def filter_df(df: pd.DataFrame, column: str, contents: list[str]):
+    """Filter the dataframe to only include rows that contain any of the contents"""
+    # Get a df where the column is not null
+    has_column = df[df[column].notna()]
+    empty_df = pd.DataFrame()
+
+    # Get all rows where the column contains any of the contents and combine them to a single df
+    for content in contents:
+        has_content = has_column[has_column[column].str.contains(content)]
+        empty_df = pd.concat([empty_df, has_content])
+
+    return empty_df
 
 
 def sort_df(df: pd.DataFrame, sort: Sort) -> pd.DataFrame:
@@ -109,7 +125,10 @@ class MovieSearchTool(BaseTool):
         super().__init__()  # Ensure you call the parent class' initializer if needed
         self.df = load_df("../raw/top_50000.pkl")  # Load the dataframe here
 
-    def semantic_search(self, query: str, k: int = 10):
+    def semantic_search(self, query: str, k: int = 10, df: pd.DataFrame = None):
+        if df is None:
+            df = self.df
+
         # Assuming you already have a model to generate embeddings for the query
         response = client.embeddings.create(
             input=query,
@@ -137,22 +156,26 @@ class MovieSearchTool(BaseTool):
         # Return top k results
         return results_df
 
-    def search_movies(self, query: str = None, sort: Sort = None):
+    def search_movies(self, query: str = None, sort: Sort = None, cast: list[str] = None):
         df = self.df.copy()
+
+        # Filters
+        if cast:
+            df = filter_df(df, "cast", cast)
 
         if query and sort:
             # Get top 20 and then sort
-            df = self.semantic_search(query, 20)
+            df = self.semantic_search(query, 20, df)
             df = sort_df(df, sort)
 
         elif query:
-            df = self.semantic_search(query, NUMBER_OF_RESULTS)
+            df = self.semantic_search(query, NUMBER_OF_RESULTS, df)
 
         elif sort:
             df = sort_df(df, sort).head(NUMBER_OF_RESULTS)
 
         return df
 
-    def _run(self, query: str = None, sort: Sort = None):
-        df = self.search_movies(query, sort)
+    def _run(self, query: str = None, sort: Sort = None, cast: list[str] = None):
+        df = self.search_movies(query, sort, cast)
         return df_to_llm(df)
