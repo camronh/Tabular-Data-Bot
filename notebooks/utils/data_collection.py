@@ -22,7 +22,7 @@ ColumnOptions = Literal['title', 'vote_average', 'vote_count', 'status', 'releas
                         'music_composer', 'imdb_rating', 'imdb_votes', 'embedding',
                         'embedding_norm']
 
-SortOptions = Literal['rating']
+SortOptions = Literal['rating', "vote_count", "release_date", "revenue"]
 
 
 class Sort(BaseModel):
@@ -55,6 +55,12 @@ def load_df(file_path: str = '../raw/top_50000.pkl') -> pd.DataFrame:
 def sort_df(df: pd.DataFrame, sort: Sort) -> pd.DataFrame:
     if sort.sort == "rating":
         return df.sort_values(by="imdb_rating", ascending=sort.ascending)
+
+    elif sort.sort == "vote_count":
+        return df.sort_values(by="imdb_votes", ascending=sort.ascending)
+
+    else:
+        return df.sort_values(by=sort.sort, ascending=sort.ascending)
 
 
 def df_to_llm(df: pd.DataFrame) -> list[dict]:
