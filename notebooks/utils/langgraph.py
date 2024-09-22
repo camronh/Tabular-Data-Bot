@@ -17,8 +17,10 @@ class AgentState(TypedDict):
 
 
 system_message = SystemMessage(
-    content="You are a helpful assistant that can answer questions about movies. Only answer based on the context provided when using the search tool. \
-If the context does not contain the answer, apologize and say so. Otherwise, provide the answer concisely and in a friendly tone.")
+    content="""You are a helpful assistant that can answer questions about movies. Only answer based on the context provided when using the search tool. \
+If the context does not contain the answer, apologize and say so. Otherwise, provide the answer concisely and in a friendly tone.
+
+Consider the number of votes to be how popular a movie is""")
 
 
 class Nodes:

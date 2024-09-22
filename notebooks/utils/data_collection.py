@@ -22,11 +22,40 @@ ColumnOptions = Literal['title', 'vote_average', 'vote_count', 'status', 'releas
                         'music_composer', 'imdb_rating', 'imdb_votes', 'embedding',
                         'embedding_norm']
 
-SortOptions = Literal['rating', "vote_count", "release_date", "revenue"]
+SortOptions = Literal['rating', "votes", "release_date", "revenue"]
+
+GenreOptions = Literal['Action', 'Science Fiction',
+                       'Adventure',
+                       'Drama',
+                       'Crime',
+                       'Thriller',
+                       'Fantasy',
+                       'Comedy',
+                       'Romance',
+                       'Western',
+                       'Mystery',
+                       'War',
+                       'Animation',
+                       'Family',
+                       'Music',
+                       'Horror',
+                       'History',
+                       'TV Movie',
+                       'Documentary']
+
+LanguageOptions = Literal['en', 'ko', 'fr', 'ja', 'it', 'es', 'pl', 'pt', 'hi', 'tr', 'da',
+                          'de', 'cn', 'id', 'zh', 'sv', 'el', 'lt', 'ru', 'fi', 'sr', 'fa',
+                          'ar', 'no', 'th', 'te', 'nl', 'la', 'hu', 'he', 'is', 'uk', 'ro',
+                          'gl', 'eu', 'et', 'bs', 'bn', 'ga', 'sh', 'cs', 'hy', 'km', 'tn',
+                          'ml', 'mk', 'ka', 'kn', 'ku', 'ta', 'ca', 'vi', 'tl', 'dz', 'sk',
+                          'xx', 'kk', 'sw', 'lv', 'tt', 'bo', 'ur', 'mi', 'ps', 'mn', 'wo',
+                          'sl', 'sc', 'af', 'ms', 'se', 'cy', 'iu', 'hr', 'mr', 'bm', 'bg',
+                          'lo', 'yo', 'am', 'xh', 'yi', 'sq', 'qu', 'eo', 'gu', 'pa', 'os',
+                          'ln', 'zu', 'ig', 'nb', 'st', 'ne', 'mt', 'as', 'ak', 'rw']
 
 
 class Sort(BaseModel):
-    sort: SortOptions = Field(
+    column: SortOptions = Field(
         description="The column to sort by")
     ascending: bool = Field(
         description="Whether to sort in ascending order")
@@ -39,6 +68,12 @@ class MovieSearch(BaseModel):
         description="Sort the results by a column")
     cast: Optional[list[str]] = Field(
         description="A list of actors or actresses that the movie must include")
+    director: Optional[str] = Field(
+        description="The director of the movie")
+    genres: Optional[list[GenreOptions]] = Field(
+        description="A list of genres that the movie must include.")
+    original_language: Optional[LanguageOptions] = Field(
+        description="The original language of the movie")
 
 
 def get_embeddings(inputs: list[str], model_name: str = embeddings_model):
@@ -69,14 +104,14 @@ def filter_df(df: pd.DataFrame, column: str, contents: list[str]):
 
 
 def sort_df(df: pd.DataFrame, sort: Sort) -> pd.DataFrame:
-    if sort.sort == "rating":
+    if sort.column == "rating":
         return df.sort_values(by="imdb_rating", ascending=sort.ascending)
 
-    elif sort.sort == "vote_count":
+    elif sort.column == "votes":
         return df.sort_values(by="imdb_votes", ascending=sort.ascending)
 
     else:
-        return df.sort_values(by=sort.sort, ascending=sort.ascending)
+        return df.sort_values(by=sort.column, ascending=sort.ascending)
 
 
 def df_to_llm(df: pd.DataFrame) -> list[dict]:
@@ -94,7 +129,6 @@ def df_to_llm(df: pd.DataFrame) -> list[dict]:
             "original_language": row["original_language"],
             "original_title": row["original_title"],
             "overview": row["overview"],
-            "popularity": row["popularity"],
             "tagline": row["tagline"],
             "genres": row["genres"],
             "production_companies": row["production_companies"],
@@ -141,13 +175,13 @@ class MovieSearchTool(BaseTool):
         query_norm = np.linalg.norm(query_embedding)
 
         # Compute dot products and cosine similarities
-        self.df['dot_product'] = self.df['embedding'].apply(
+        df['dot_product'] = df['embedding'].apply(
             lambda x: np.dot(query_embedding, x))
-        self.df['similarity'] = self.df['dot_product'] / \
+        df['similarity'] = df['dot_product'] / \
             (self.df['embedding_norm'] * query_norm)
 
         # Sort by similarity and get top k results
-        results_df = self.df.sort_values(by='similarity', ascending=False)
+        results_df = df.sort_values(by='similarity', ascending=False)
         results_df = results_df.head(k)
 
         # Sort by vote count
@@ -156,13 +190,29 @@ class MovieSearchTool(BaseTool):
         # Return top k results
         return results_df
 
-    def search_movies(self, query: str = None, sort: Sort = None, cast: list[str] = None):
+    def search_movies(self, query: str = None, sort: Sort = None,
+                      cast: list[str] = None,
+                      director: str = None,
+                      genres: list[str] = None,
+                      original_language: LanguageOptions = None):
+
         df = self.df.copy()
 
         # Filters
         if cast:
             df = filter_df(df, "cast", cast)
 
+        if director:
+            df = filter_df(df, "director", [director])
+
+        if genres:
+            df = filter_df(df, "genres", genres)
+
+        if original_language:
+            df = filter_df(df, "original_language", [original_language])
+
+
+        # Sorting
         if query and sort:
             # Get top 20 and then sort
             df = self.semantic_search(query, 20, df)
@@ -176,6 +226,8 @@ class MovieSearchTool(BaseTool):
 
         return df
 
-    def _run(self, query: str = None, sort: Sort = None, cast: list[str] = None):
-        df = self.search_movies(query, sort, cast)
+    def _run(self, query: str = None, sort: Sort = None, cast: list[str] = None, director: str = None,
+             genres: list[str] = None, original_language: LanguageOptions = None):
+        df = self.search_movies(
+            query, sort, cast, director, genres, original_language)
         return df_to_llm(df)
