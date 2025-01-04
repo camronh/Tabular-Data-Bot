@@ -1,0 +1,35 @@
+# Improve the agent
+
+So we have an agent that passes a 37% accuracy on the evals.
+
+Lets try to improve it
+
+First Im going to analyze the dataset and split it up into categories to decide which category to start with
+
+Okay so I went through and just added splits to all of the examples
+
+It looks like sort is the most common one so we will start there
+
+```python
+# Get the df
+from utils.data_collection import load_df
+df = load_df()
+
+# columns
+df.columns
+
+
+```
+
+Nice so we added a sort field to the rating column and that [improved the accuracy to 63%](https://smith.langchain.com/o/d967989d-4221-53db-b0a5-665b504acba2/datasets/e1357a55-6663-4300-9695-34aad34bd544/compare?selectedSessions=6c31697f-8b1e-42e9-96c7-17ea0bbb01da%2C96ed9bfc-e635-422b-9d51-390841108888&baseline=6c31697f-8b1e-42e9-96c7-17ea0bbb01da)
+
+Lets add some more sorts
+
+
+
+Nice! [Now were up to 68%!](https://smith.langchain.com/o/d967989d-4221-53db-b0a5-665b504acba2/datasets/e1357a55-6663-4300-9695-34aad34bd544/compare?selectedSessions=08b8a117-a5f4-4e9d-b540-c98413c63b91%2Ce68e2b2f-a2af-444e-aff0-3b522497b776&baseline=08b8a117-a5f4-4e9d-b540-c98413c63b91)
+
+```python
+
+```
+
